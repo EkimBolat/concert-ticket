@@ -1,0 +1,92 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gatekeeper
+      POSTGRES_PASSWORD: gatekeeper
+      POSTGRES_DB: gatekeeper
+      POSTGRES_MULTIPLE_DATABASES: orderdb,paymentdb
+    volumes:
+      - ./scripts/init-multi-db.sh:/docker-entrypoint-initdb.d/init-multi-db.sh
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+    depends_on:
+      - waiting-room
+      - seat-locking
+      - order
+
+  waiting-room:
+    build: ./services/waiting-room
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+
+  seat-locking:
+    build: ./services/seat-locking
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=8082
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+
+  order:
+    build: ./services/order
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+      - DATABASE_URL=postgres://gatekeeper:gatekeeper@postgres:5432/orderdb?sslmode=disable
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      - postgres
+      - rabbitmq
+
+  payment:
+    build: ./services/payment
+    ports:
+      - "8084:8084"
+    environment:
+      - PORT=8084
+      - DATABASE_URL=postgres://gatekeeper:gatekeeper@postgres:5432/paymentdb?sslmode=disable
+    depends_on:
+      - postgres
+
+  notification:
+    build: ./services/notification
+    ports:
+      - "8085:8085"
+    environment:
+      - PORT=8085
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      - rabbitmq
+
+volumes:
+  pgdata:
