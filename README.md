@@ -1,10 +1,10 @@
-# Concert Ticket
+# 🎫 Concert Ticket
 
 A backend-focused learning project. The goal isn't to build a ticket-selling website — it's to solve the a problem underneath one: when thousands of people try to buy tickets at the same moment, how do you make sure the same seat never gets sold to two people?
 
 This was inspired by Ticketmaster's 2022 Taylor Swift on-sale, which crashed for exactly this reason.
 
-## How it works
+## 🧩 How it works
 
 The project is made of 6 small services, each responsible for its own piece:
 
@@ -32,11 +32,11 @@ flowchart LR
     Payment --> PaymentDB[(Postgres: paymentdb)]
 ```
 
-## Tech stack
+## 🛠️ Tech stack
 
 Go · Redis · RabbitMQ · PostgreSQL · WebSocket · Docker Compose
 
-## Getting started
+## 🚀 Getting started
 
 ```bash
 git clone https://github.com/EkimBolat/concert-ticket.git
@@ -56,7 +56,7 @@ Once running, each service exposes a `/health` endpoint:
 | notification | 8085 |
 | RabbitMQ management UI | 15672 (guest/guest) |
 
-## Status
+## 📌 Status
 
 Still a work in progress. Done so far:
 
