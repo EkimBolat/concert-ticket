@@ -61,7 +61,7 @@ Once running, each service exposes a `/health` endpoint:
 Still a work in progress. Done so far:
 
 - [x] seat-locking — locking with Redis `SETNX` + TTL, live seat status over WebSocket
-- [ ] waiting-room — queueing system, admission tokens
+- [x] waiting-room — queueing system, admission tokens
 - [ ] order — saga flow (release the seat if payment fails)
 - [ ] payment — fake payment service
 - [ ] notification — notification service

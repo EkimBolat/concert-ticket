@@ -1,31 +1,68 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
+	"time"
 )
 
-// TODO (next steps for this service):
-// - Redis sorted-set queue (score = arrival timestamp)\n// - Background admitter goroutine (admit N users every T seconds)\n// - Issue short-lived JWT admission tokens\n// - WebSocket/polling endpoint for live queue position
+func getenv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func getenvInt(key string, fallback int64) int64 {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil {
+		return fallback
+	}
+	return n
+}
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8081"
+	port := getenv("PORT", "8081")
+	secret := []byte(getenv("JWT_SECRET", "dev-secret-change-me"))
+	if string(secret) == "dev-secret-change-me" {
+		log.Println("warning: using default JWT_SECRET, set a real one before deploying")
 	}
 
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"service": "waiting-room",
-			"status":  "ok",
-		})
+	batchSize := getenvInt("ADMIT_BATCH_SIZE", 5)
+	admitInterval := time.Duration(getenvInt("ADMIT_INTERVAL_SECONDS", 10)) * time.Second
+	tokenTTL := time.Duration(getenvInt("TOKEN_TTL_MINUTES", 10)) * time.Minute
+
+	rdb := newRedisClient()
+	startAdmitter(rdb, batchSize, admitInterval, tokenTTL, secret)
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]string{"service": "waiting-room", "status": "ok"})
+	})
+
+	// POST /queue/{eventId}/join
+	// GET  /queue/{eventId}/status?userId=...
+	mux.HandleFunc("/queue/", func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/join"):
+			joinHandler(rdb)(w, r)
+		case strings.HasSuffix(r.URL.Path, "/status"):
+			statusHandler(rdb)(w, r)
+		default:
+			http.NotFound(w, r)
+		}
 	})
 
 	log.Printf("waiting-room service listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Fatal(err)
 	}
 }
