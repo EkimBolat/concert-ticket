@@ -64,6 +64,6 @@ Still a work in progress. Done so far:
 - [x] waiting-room — queueing system, admission tokens
 - [x] order — saga flow (charge → confirm seat, release/refund on failure)
 - [x] payment — fake payment service, idempotent by orderId
-- [ ] notification — notification service
+- [x] notification — consumes order events from RabbitMQ, logs mock notifications
 - [ ] api-gateway — routing + rate limiting
 - [ ] tests

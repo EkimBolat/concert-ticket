@@ -7,14 +7,17 @@ import (
 	"os"
 )
 
-// TODO (next steps for this service):
-// - Consume order.completed / order.failed from RabbitMQ\n// - Send confirmation/failure notification (mock: log or email stub)
+func getenv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8085"
-	}
+	port := getenv("PORT", "8085")
+
+	startConsumer(getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"))
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
