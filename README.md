@@ -1,6 +1,6 @@
 # 🎫 Concert Ticket
 
-A backend-focused learning project. The goal isn't to build a ticket-selling website — it's to solve the a problem underneath one: when thousands of people try to buy tickets at the same moment, how do you make sure the same seat never gets sold to two people?
+A backend-focused learning project. The goal isn't to build a ticket-selling website — it's to solve the interesting problem underneath one: when thousands of people try to buy tickets at the same moment, how do you make sure the same seat never gets sold to two people?
 
 This was inspired by Ticketmaster's 2022 Taylor Swift on-sale, which crashed for exactly this reason.
 
@@ -62,8 +62,8 @@ Still a work in progress. Done so far:
 
 - [x] seat-locking — locking with Redis `SETNX` + TTL, live seat status over WebSocket
 - [x] waiting-room — queueing system, admission tokens
-- [ ] order — saga flow (release the seat if payment fails)
-- [ ] payment — fake payment service
+- [x] order — saga flow (charge → confirm seat, release/refund on failure)
+- [x] payment — fake payment service, idempotent by orderId
 - [ ] notification — notification service
 - [ ] api-gateway — routing + rate limiting
 - [ ] tests

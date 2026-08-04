@@ -1,31 +1,52 @@
 package main
 
 import (
-	"encoding/json"
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
 )
 
-// TODO (next steps for this service):
-// - Saga orchestration: reserve seat -> charge payment -> confirm\n// - Compensating action: release seat lock on payment failure\n// - Publish order.completed / order.failed events to RabbitMQ\n// - Persist orders in Postgres (orderdb)
+func getenv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+// dependencies bundles everything the saga needs to talk to the outside
+// world, so handlers/saga.go don't reach for globals.
+type dependencies struct {
+	db             *sql.DB
+	seatLockingURL string
+	paymentURL     string
+	events         *eventPublisher
+}
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8083"
+	port := getenv("PORT", "8083")
+
+	db := newDB()
+	defer db.Close()
+
+	events := newEventPublisher(getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"))
+
+	deps := &dependencies{
+		db:             db,
+		seatLockingURL: getenv("SEAT_LOCKING_URL", "http://localhost:8082"),
+		paymentURL:     getenv("PAYMENT_URL", "http://localhost:8084"),
+		events:         events,
 	}
 
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"service": "order",
-			"status":  "ok",
-		})
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]string{"service": "order", "status": "ok"})
 	})
+	mux.HandleFunc("/orders", placeOrderHandler(deps))
 
 	log.Printf("order service listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Fatal(err)
 	}
 }

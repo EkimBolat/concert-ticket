@@ -1,31 +1,34 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 )
 
-// TODO (next steps for this service):
-// - Mock charge/refund endpoints simulating an external gateway\n// - Idempotency: same order ID can never be charged twice\n// - Persist transactions in Postgres (paymentdb)
+func getenv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8084"
-	}
+	port := getenv("PORT", "8084")
 
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"service": "payment",
-			"status":  "ok",
-		})
+	db := newDB()
+	defer db.Close()
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]string{"service": "payment", "status": "ok"})
 	})
+	mux.HandleFunc("/charge", chargeHandler(db))
+	mux.HandleFunc("/refund", refundHandler(db))
 
 	log.Printf("payment service listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Fatal(err)
 	}
 }
