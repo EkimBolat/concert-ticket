@@ -65,5 +65,5 @@ Still a work in progress. Done so far:
 - [x] order — saga flow (charge → confirm seat, release/refund on failure)
 - [x] payment — fake payment service, idempotent by orderId
 - [x] notification — consumes order events from RabbitMQ, logs mock notifications
-- [ ] api-gateway — routing + rate limiting
+- [x] api-gateway — reverse proxy to all services, per-IP rate limiting
 - [ ] tests
