@@ -82,6 +82,7 @@ sequenceDiagram
 - Idempotency enforced at the payment boundary.
 - Real-time fan-out via Redis Pub/Sub + WebSocket instead of client-side polling.
 - Each service owns its own data store — failures are isolated instead of cascading through a single shared database.
+- The waiting room is actually enforced, not decorative: the API Gateway verifies the admission JWT's signature, expiry, and that it was issued for the exact event/user in the request, before letting a lock or order request through. Skipping the queue isn't possible even if you know the internal API shape.
 
 ## Tech Stack
 

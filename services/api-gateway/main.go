@@ -16,6 +16,7 @@ func getenv(key, fallback string) string {
 
 func main() {
 	port := getenv("PORT", "8080")
+	secret := []byte(getenv("JWT_SECRET", "dev-secret-change-me"))
 
 	waitingRoom := newProxy(getenv("WAITING_ROOM_URL", "http://localhost:8081"))
 	seatLocking := newProxy(getenv("SEAT_LOCKING_URL", "http://localhost:8082"))
@@ -34,8 +35,16 @@ func main() {
 	})
 
 	mux.Handle("/queue/", waitingRoom)
+
+	// Locking a seat and placing an order are the two actions the
+	// Waiting Room is meant to gate -- both require a valid admission
+	// token that matches the event/user in the request. Everything else
+	// under /seats/ (release, confirm) passes through: those are called
+	// server-to-server by the Order Service, never directly by a client
+	// that skipped the queue.
+	mux.Handle("POST /seats/{eventId}/{seatId}/lock", requireAdmission(secret, lockIdentity, seatLocking))
 	mux.Handle("/seats/", seatLocking)
-	mux.Handle("/orders", order)
+	mux.Handle("POST /orders", requireAdmission(secret, orderIdentity, order))
 
 	handler := rateLimitMiddleware(limiter, mux)
 

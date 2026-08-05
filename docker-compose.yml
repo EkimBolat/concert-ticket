@@ -31,6 +31,10 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
+      - JWT_SECRET=change-me-in-production
+      - WAITING_ROOM_URL=http://waiting-room:8081
+      - SEAT_LOCKING_URL=http://seat-locking:8082
+      - ORDER_URL=http://order:8083
     depends_on:
       - waiting-room
       - seat-locking
@@ -43,6 +47,7 @@ services:
     environment:
       - PORT=8081
       - REDIS_ADDR=redis:6379
+      - JWT_SECRET=change-me-in-production
     depends_on:
       - redis
 

@@ -10,8 +10,8 @@ This was inspired by Ticketmaster's 2022 Taylor Swift on-sale, which crashed for
 
 The project is made of 6 small services, each responsible for its own piece:
 
-- **api-gateway** — routes incoming requests to the right service
-- **waiting-room** — puts users in a virtual queue during high traffic, lets them in a few at a time
+- **api-gateway** — routes incoming requests to the right service, rate limits by IP, and enforces that locking a seat or placing an order requires a valid admission token (no skipping the queue)
+- **waiting-room** — puts users in a virtual queue during high traffic, lets them in a few at a time, and issues the admission token that proves you waited your turn
 - **seat-locking** — where seat selection/locking happens, the most critical part of the project (uses Redis)
 - **order** — manages the purchase flow: charge payment, confirm the seat, roll back if anything fails
 - **payment** — a fake payment service (no real money, just for testing)
