@@ -1,5 +1,7 @@
 # 🎫 Concert Ticket
 
+[![CI](https://github.com/EkimBolat/concert-ticket/actions/workflows/ci.yml/badge.svg)](https://github.com/EkimBolat/concert-ticket/actions/workflows/ci.yml)
+
 A backend-focused learning project. The goal isn't to build a ticket-selling website — it's to solve the interesting problem underneath one: when thousands of people try to buy tickets at the same moment, how do you make sure the same seat never gets sold to two people?
 
 This was inspired by Ticketmaster's 2022 Taylor Swift on-sale, which crashed for exactly this reason.
@@ -81,4 +83,4 @@ The core system is done — all 6 services work end to end, including the full p
 - [x] notification — consumes order events from RabbitMQ, logs mock notifications
 - [x] api-gateway — reverse proxy to all services, per-IP rate limiting
 - [x] tests — concurrency test on the seat lock, saga tests on the order flow
-- [ ] CI (GitHub Actions): run tests on every push
+- [x] CI (GitHub Actions): builds all 6 services + runs integration tests on every push

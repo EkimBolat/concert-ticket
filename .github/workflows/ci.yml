@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - api-gateway
+          - waiting-room
+          - seat-locking
+          - order
+          - payment
+          - notification
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+
+      - name: Build ${{ matrix.service }}
+        working-directory: services/${{ matrix.service }}
+        run: go build ./...
+
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: gatekeeper
+          POSTGRES_PASSWORD: gatekeeper
+          POSTGRES_DB: gatekeeper
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+
+      - name: Test seat-locking (concurrency guarantee)
+        working-directory: services/seat-locking
+        env:
+          REDIS_ADDR: localhost:6379
+        run: go test -tags=integration ./... -v
+
+      - name: Test order (saga)
+        working-directory: services/order
+        env:
+          DATABASE_URL: postgres://gatekeeper:gatekeeper@localhost:5432/gatekeeper?sslmode=disable
+        run: go test -tags=integration ./... -v
