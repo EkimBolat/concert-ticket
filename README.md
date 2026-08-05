@@ -56,9 +56,23 @@ Once running, each service exposes a `/health` endpoint:
 | notification | 8085 |
 | RabbitMQ management UI | 15672 (guest/guest) |
 
+## 🧪 Testing
+
+`seat-locking` and `order` have integration tests behind a build tag (they need a real Redis / Postgres to run against):
+
+```bash
+cd services/seat-locking
+go test -tags=integration ./... -v
+
+cd services/order
+go test -tags=integration ./... -v
+```
+
+The one worth reading is `TestLockSeat_ConcurrentCallers_OnlyOneWins` in `services/seat-locking/lock_test.go` — it fires 50 concurrent goroutines at the same seat and asserts exactly one of them wins the lock. That's the core guarantee of the whole project, proven with a test instead of just a claim.
+
 ## 📌 Status
 
-Still a work in progress. Done so far:
+The core system is done — all 6 services work end to end, including the full purchase saga with compensating actions on failure.
 
 - [x] seat-locking — locking with Redis `SETNX` + TTL, live seat status over WebSocket
 - [x] waiting-room — queueing system, admission tokens
@@ -66,4 +80,5 @@ Still a work in progress. Done so far:
 - [x] payment — fake payment service, idempotent by orderId
 - [x] notification — consumes order events from RabbitMQ, logs mock notifications
 - [x] api-gateway — reverse proxy to all services, per-IP rate limiting
-- [ ] tests
+- [x] tests — concurrency test on the seat lock, saga tests on the order flow
+- [ ] CI (GitHub Actions): run tests on every push
