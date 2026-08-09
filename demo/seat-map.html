@@ -85,6 +85,8 @@
   }
   .event-card:hover { transform: translateY(-2px); border-color: #3b82f6; }
   .event-poster { height: 84px; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+  .event-poster.has-image { height: auto; }
+  .event-poster img { width: 100%; aspect-ratio: 5 / 7; object-fit: cover; display: block; }
   .event-info { padding: 10px 12px 12px; }
   .event-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
   .event-meta { font-size: 11px; color: #9aa0a6; margin-bottom: 6px; }
@@ -204,8 +206,10 @@
   const EVENTS = [
     { id: "concert-1", title: "Neon Nights World Tour", meta: "Zorlu PSM · Aug 30, 20:00", icon: "🎤", priceCents: 4500, color: "#7c3aed" },
     { id: "concert-midnight-static", title: "Midnight Static — Live", meta: "Volkswagen Arena · Sep 12, 21:00", icon: "🎸", priceCents: 5500, color: "#db2777" },
-    { id: "movie-last-reel", title: "The Last Reel", meta: "Now showing · 2h 08m", icon: "🎬", priceCents: 1200, color: "#0891b2" },
-    { id: "movie-quantum-drift", title: "Quantum Drift", meta: "Now showing · 1h 54m", icon: "🚀", priceCents: 1400, color: "#16a34a" },
+    { id: "movie-glacia", title: "Glacia", meta: "Thriller · Fall 2027", icon: "🎬", priceCents: 1300, image: "posters/glacia.jpg" },
+    { id: "movie-lightning-girl", title: "Lightning Girl", meta: "Sci-Fi · Spring 2027", icon: "🎬", priceCents: 1300, image: "posters/lightning-girl.jpg" },
+    { id: "movie-pyroda", title: "Pyroda", meta: "Action · Summer 2027", icon: "🎬", priceCents: 1400, image: "posters/pyroda.jpg" },
+    { id: "movie-void-man", title: "Void Man", meta: "Mystery · Winter 2027", icon: "🎬", priceCents: 1200, image: "posters/void-man.jpg" },
   ];
 
   const state = { eventId: "", eventTitle: "", priceCents: 0, userId: "", token: null, selectedSeat: null };
@@ -245,8 +249,11 @@
     EVENTS.forEach((ev) => {
       const card = document.createElement("div");
       card.className = "event-card";
+      const poster = ev.image
+        ? `<div class="event-poster has-image"><img src="${ev.image}" alt="${ev.title} poster" loading="lazy"></div>`
+        : `<div class="event-poster" style="background:${ev.color}">${ev.icon}</div>`;
       card.innerHTML = `
-        <div class="event-poster" style="background:${ev.color}">${ev.icon}</div>
+        ${poster}
         <div class="event-info">
           <div class="event-title">${ev.title}</div>
           <div class="event-meta">${ev.meta}</div>
