@@ -36,6 +36,8 @@
   button:disabled { background: #374151; cursor: not-allowed; }
   button.secondary { background: transparent; border: 1px solid #333; color: #9aa0a6; }
   button.secondary:hover { background: #1c1f26; }
+  button.danger { background: transparent; border: 1px solid #5c2626; color: #fca5a5; margin-left: 8px; }
+  button.danger:hover { background: #2a1414; }
 
   .status { font-size: 13px; }
   .status.connected { color: #4ade80; }
@@ -160,6 +162,7 @@
     <h2>Order result</h2>
     <div id="resultBox" class="result"></div>
     <button class="secondary" onclick="reset()">Start over</button>
+    <button class="danger" onclick="fullReset()">Full reset (clear every seat)</button>
   </div>
 
   <div id="log" class="log"></div>
@@ -375,6 +378,22 @@
         : data.reason;
       box.innerHTML = `<strong>❌ Order failed</strong><br>Order #${data.orderId} -- ${reason}`;
     }
+  }
+
+  // ---- Full reset (dev/demo convenience) ----
+  // Clears every locked/sold seat for the event on the backend, not just
+  // this tab's local state -- useful when testing has left seats
+  // permanently sold or awkwardly locked and you just want a clean grid
+  // again, without waiting out TTLs.
+  async function fullReset() {
+    if (!confirm("This clears every locked and sold seat for everyone testing this event right now. Continue?")) return;
+    try {
+      const data = await api(`/seats/${state.eventId}`, { method: "DELETE" });
+      log(`full reset -- cleared ${data.reset} seat(s)`);
+    } catch (err) {
+      log(`full reset failed: ${err}`);
+    }
+    reset();
   }
 
   // ---- Reset ----

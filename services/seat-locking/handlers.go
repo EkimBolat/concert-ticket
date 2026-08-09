@@ -24,20 +24,30 @@ func parseSeatPath(path string) (eventID, seatID, action string, ok bool) {
 
 func seatsHandler(rdb *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// GET /seats/{eventId} -- snapshot of every locked/sold seat right
-		// now. Clients call this once when opening the seat map to hydrate
-		// colors, since the WebSocket only streams changes going forward.
+		// /seats/{eventId} (no seatId/action) -- GET for a snapshot of every
+		// locked/sold seat, DELETE to wipe all of them (the demo's "full
+		// reset" button).
 		if parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/"); len(parts) == 2 && parts[0] == "seats" {
-			if r.Method != http.MethodGet {
+			switch r.Method {
+			case http.MethodGet:
+				seats, err := listSeats(r.Context(), rdb, parts[1])
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				writeJSON(w, map[string]any{"seats": seats})
+
+			case http.MethodDelete:
+				n, err := resetSeats(r.Context(), rdb, parts[1])
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				writeJSON(w, map[string]any{"reset": n})
+
+			default:
 				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-				return
 			}
-			seats, err := listSeats(r.Context(), rdb, parts[1])
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			writeJSON(w, map[string]any{"seats": seats})
 			return
 		}
 

@@ -127,6 +127,37 @@ func listSeats(ctx context.Context, rdb *redis.Client, eventID string) ([]SeatEv
 	return seats, nil
 }
 
+// resetSeats clears every locked or sold seat for an event and lets every
+// connected seat map know live, so the grid goes back to all-green without
+// anyone needing to refresh. This is a demo/testing convenience (the "full
+// reset" button) -- a real ticketing system wouldn't hand this to clients.
+func resetSeats(ctx context.Context, rdb *redis.Client, eventID string) (int, error) {
+	prefix := seatKey(eventID, "")
+	pattern := prefix + "*"
+
+	var keys []string
+	iter := rdb.Scan(ctx, 0, pattern, 0).Iterator()
+	for iter.Next(ctx) {
+		keys = append(keys, iter.Val())
+	}
+	if err := iter.Err(); err != nil {
+		return 0, err
+	}
+	if len(keys) == 0 {
+		return 0, nil
+	}
+	if err := rdb.Del(ctx, keys...).Err(); err != nil {
+		return 0, err
+	}
+	for _, key := range keys {
+		publish(ctx, rdb, eventID, SeatEvent{
+			EventID: eventID, SeatID: strings.TrimPrefix(key, prefix),
+			Status: StatusReleased, At: time.Now(),
+		})
+	}
+	return len(keys), nil
+}
+
 func publish(ctx context.Context, rdb *redis.Client, eventID string, evt SeatEvent) {
 	b, err := json.Marshal(evt)
 	if err != nil {
