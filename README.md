@@ -1,6 +1,7 @@
 # 🎫 Concert Ticket
 
 [![CI](https://github.com/EkimBolat/concert-ticket/actions/workflows/ci.yml/badge.svg)](https://github.com/EkimBolat/concert-ticket/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 **[Try the live demo](https://ekimbolat.github.io/concert-ticket/demo/seat-map.html)** -- join the queue, get admitted, pick a seat, check out. All 5 services running for real, hosted free on Render. (First request may take ~50s: free instances spin down when idle.)
 
