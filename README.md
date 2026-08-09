@@ -6,7 +6,7 @@
 
 A backend-focused learning project. The goal isn't to build a ticket-selling website — it's to solve the interesting problem underneath one: when thousands of people try to buy tickets at the same moment, how do you make sure the same seat never gets sold to two people? This was inspired by Ticketmaster's 2022 Taylor Swift on-sale, which crashed for exactly that reason.
 
-**[Try the live demo](https://ekimbolat.github.io/concert-ticket/demo/seat-map.html)** — join the queue, get admitted, pick a seat, check out. All 5 backend services running for real, hosted free on Render. (First request may take ~50s: free instances spin down when idle.)
+**[Try the live demo](https://ekimbolat.github.io/concert-ticket/demo/seat-map.html)** — pick an event from the catalog, join its queue, get admitted, pick a seat, check out. All 5 backend services running for real, hosted free on Render. (First request may take ~50s: free instances spin down when idle.)
 
 ![Live seat map demo](./demo/screenshot.png)
 
@@ -16,6 +16,7 @@ A backend-focused learning project. The goal isn't to build a ticket-selling web
 - **Purchase saga** — the order flow charges payment, confirms the seat, and rolls back (releases the seat, no charge) if any step fails, instead of leaving things in a half-done state.
 - **Virtual waiting room** — a queue that admits users in small batches and issues a signed token; the gateway rejects any seat lock or order that doesn't carry one, so there's no skipping the line.
 - **Live seat map** — seat status streams to every connected client over WebSocket as it changes.
+- **Multi-event catalog** — the demo lists several concerts and movies to choose from; `eventId` is just an arbitrary string as far as the backend is concerned, so every listed event gets its own fully independent queue, seat map, and locks for free.
 - **Deployed for real** — not just `docker-compose up` on a laptop; all 5 services run live on Render with a public demo.
 
 ## Architecture
@@ -74,7 +75,7 @@ Once running, each service exposes a `/health` endpoint:
 
 `demo/seat-map.html` is a single, dependency-free HTML file — no build step, no framework. It points at the hosted Render backend by default; to run it fully locally instead, change `GATEWAY_URL` at the top of the `<script>` to `http://localhost:8080` and run `api-gateway`, `waiting-room`, `seat-locking`, `order`, and `payment` on your machine.
 
-Open the demo in two tabs with different user IDs and race for the same seat to watch the lock guarantee resolve live. There's also a checkbox on checkout to simulate a declined card, so you can watch the saga release the seat back to the pool.
+Open the demo in two tabs with different user IDs, pick the *same* event in both, and race for the same seat to watch the lock guarantee resolve live. There's also a checkbox on checkout to simulate a declined card, so you can watch the saga release the seat back to the pool, and a "Full reset" button on the confirmation screen that clears every lock/sale for the currently selected event if testing has left things in an awkward state.
 
 ## Testing
 
