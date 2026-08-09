@@ -256,10 +256,19 @@
     });
   }
 
-  function applyStatus(seatId, status) {
+  function applyStatus(seatId, status, lockedBy) {
     const el = seatEls[seatId];
     if (!el) return;
-    if (seatId === state.selectedSeat && (status === "locked" || status === "sold")) return; // keep it blue
+    if (seatId === state.selectedSeat) {
+      // Only keep it blue if this update is confirming *my own* lock/sale.
+      // If it was released (lock expired, or my order failed) or someone
+      // else now holds/bought it, this seat isn't mine anymore -- forget
+      // it so future updates (like someone else's "sold") aren't ignored.
+      const stillMine = (status === "locked" || status === "sold") && lockedBy === state.userId;
+      if (stillMine) return; // keep it blue
+      state.selectedSeat = null;
+      document.getElementById("checkoutBtn").disabled = true;
+    }
     el.classList.remove("locked", "sold", "mine");
     if (status === "locked") el.classList.add("locked");
     if (status === "sold") el.classList.add("sold");
@@ -273,7 +282,7 @@
     ws.onclose = () => { wsStatusEl.textContent = "● disconnected"; wsStatusEl.className = "status disconnected"; };
     ws.onmessage = (evt) => {
       const data = JSON.parse(evt.data);
-      applyStatus(data.seatId, data.status);
+      applyStatus(data.seatId, data.status, data.lockedBy);
       log(`${data.seatId} -> ${data.status}${data.lockedBy ? " (by " + data.lockedBy + ")" : ""}`);
     };
   }
