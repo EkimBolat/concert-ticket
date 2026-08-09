@@ -312,7 +312,11 @@
       const data = await api(`/seats/${state.eventId}/${seatId}/lock`, { method: "POST", body: JSON.stringify({ userId: state.userId }) });
       log(`tried to lock ${seatId} -> locked: ${data.locked}`);
       if (data.locked) {
-        if (state.selectedSeat) seatEls[state.selectedSeat]?.classList.remove("mine");
+        const previous = state.selectedSeat;
+        if (previous && previous !== seatId) {
+          seatEls[previous]?.classList.remove("mine");
+          releaseSeat(previous); // changed their mind -- give the old seat back
+        }
         state.selectedSeat = seatId;
         el.classList.add("mine");
         document.getElementById("checkoutBtn").disabled = false;
@@ -320,6 +324,20 @@
       }
     } catch (err) {
       log(`lock request failed: ${err}`);
+    }
+  }
+
+  // Releases a seat this user previously locked but is no longer pursuing
+  // (they picked a different one instead). Without this, switching your
+  // seat choice orphaned the old lock -- it stayed reserved under your
+  // name until its 5-minute TTL expired, uselessly blocking that seat for
+  // everyone else in the meantime.
+  async function releaseSeat(seatId) {
+    try {
+      await api(`/seats/${state.eventId}/${seatId}/release`, { method: "POST", body: JSON.stringify({ userId: state.userId }) });
+      log(`released ${seatId} (picked a different seat instead)`);
+    } catch (err) {
+      log(`couldn't release ${seatId}: ${err}`);
     }
   }
 
