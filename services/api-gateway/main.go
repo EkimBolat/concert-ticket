@@ -46,7 +46,7 @@ func main() {
 	mux.Handle("/seats/", seatLocking)
 	mux.Handle("POST /orders", requireAdmission(secret, orderIdentity, order))
 
-	handler := rateLimitMiddleware(limiter, mux)
+	handler := corsMiddleware(rateLimitMiddleware(limiter, mux))
 
 	log.Printf("api-gateway service listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
