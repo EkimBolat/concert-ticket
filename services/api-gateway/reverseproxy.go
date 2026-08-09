@@ -18,6 +18,19 @@ func newProxy(target string) *httputil.ReverseProxy {
 	}
 	proxy := httputil.NewSingleHostReverseProxy(u)
 
+	// NewSingleHostReverseProxy's default Director rewrites the URL but
+	// leaves the Host header as whatever the client sent (the gateway's
+	// own host). Render routes by Host header at its edge, so a request
+	// forwarded to e.g. waiting-room with Host still set to the gateway's
+	// hostname gets routed straight back to the gateway -- an infinite
+	// loop that Render's edge eventually kills with a 508 Loop Detected.
+	// Explicitly setting Host to the upstream's own host fixes it.
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.Host = u.Host
+	}
+
 	// Strip any CORS headers the upstream response might carry (from
 	// seat-locking's own corsMiddleware, or headers the hosting platform
 	// injects) before they get merged onto the gateway's response.
