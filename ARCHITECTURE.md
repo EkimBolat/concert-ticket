@@ -24,7 +24,7 @@ Concert ticketing is used as the demo domain, but the underlying services are do
 
 ### 3. Seat Locking Service
 - Holds the authoritative, real-time seat map for each event in Redis.
-- Seat selection uses `SETNX seat:{eventId}:{seatId}` with a TTL (e.g. 5 minutes) — this is the core concurrency guarantee: only one request can ever win the lock.
+- Seat selection uses `SETNX seat:{eventId}:{seatId}` with a TTL (`LOCK_TTL_MINUTES`, default 2 minutes) — this is the core concurrency guarantee: only one request can ever win the lock.
 - Broadcasts seat state changes (`locked` / `released` / `sold`) to all connected clients over WebSocket via Redis Pub/Sub, so every browser sees the live seat map update instantly.
 - Locks expire automatically if checkout isn't completed in time, releasing the seat back to the pool.
 

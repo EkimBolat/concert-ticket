@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 )
 
 func getenv(key, fallback string) string {
@@ -13,8 +15,21 @@ func getenv(key, fallback string) string {
 	return fallback
 }
 
+func getenvInt(key string, fallback int64) int64 {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil {
+		return fallback
+	}
+	return n
+}
+
 func main() {
 	port := getenv("PORT", "8082")
+	lockTTL = time.Duration(getenvInt("LOCK_TTL_MINUTES", 2)) * time.Minute
 
 	rdb := newRedisClient()
 	manager := newHubManager(rdb)

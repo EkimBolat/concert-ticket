@@ -10,8 +10,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// lockTTL is overridden in main() from LOCK_TTL_MINUTES; 2 minutes here is
+// just the fallback if that env var isn't set.
+var lockTTL = 2 * time.Minute
+
 const (
-	lockTTL       = 5 * time.Minute
 	pubSubChannel = "seat-updates" // actual channel is "seat-updates:{eventId}"
 )
 
