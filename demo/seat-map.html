@@ -35,9 +35,9 @@
 <body>
   <h1>🎫 Concert Ticket — Live Seat Map</h1>
   <p class="sub">
-    Talks directly to the Seat Locking Service on <code>localhost:8082</code> (REST + WebSocket) --
-    open this page in two browser tabs with different user IDs and race for the same seat to see
-    the lock guarantee in action.
+    Talks directly to the live Seat Locking Service (REST + WebSocket, hosted on Render's free tier --
+    the first request may take ~50s to wake it up). Open this page in two browser tabs with different
+    user IDs and race for the same seat to see the lock guarantee in action.
   </p>
 
   <div class="controls">
@@ -59,7 +59,8 @@
 <script>
   const ROWS = ["A", "B", "C", "D", "E"];
   const COLS = 10;
-  const SEAT_LOCKING_URL = "http://localhost:8082";
+  const SEAT_LOCKING_URL = "https://seat-locking.onrender.com";
+  const WS_URL = SEAT_LOCKING_URL.replace(/^http/, "ws"); // https -> wss, http -> ws
 
   const grid = document.getElementById("grid");
   const logEl = document.getElementById("log");
@@ -115,7 +116,7 @@
       const data = await res.json();
       log(`${userId} tried to lock ${seatId} -> locked: ${data.locked}`);
     } catch (err) {
-      log(`request failed: ${err} (is seat-locking running on :8082?)`);
+      log(`request failed: ${err} (the backend may still be waking up, try again in a few seconds)`);
     }
   }
 
@@ -123,7 +124,7 @@
   function connect() {
     const eventId = eventInput.value.trim();
     if (ws) ws.close();
-    ws = new WebSocket(`ws://localhost:8082/ws/${eventId}`);
+    ws = new WebSocket(`${WS_URL}/ws/${eventId}`);
 
     ws.onopen = () => {
       wsStatusEl.textContent = "● connected";
@@ -134,7 +135,7 @@
       wsStatusEl.textContent = "● disconnected";
       wsStatusEl.className = "status disconnected";
     };
-    ws.onerror = () => log("websocket error (is seat-locking running on :8082?)");
+    ws.onerror = () => log("websocket error (the backend may still be waking up, try again in a few seconds)");
     ws.onmessage = (evt) => {
       const data = JSON.parse(evt.data);
       applyStatus(data.seatId, data.status);
