@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -83,6 +84,44 @@ func confirmSeat(ctx context.Context, rdb *redis.Client, eventID, seatID, userID
 		Status: StatusSold, LockedBy: userID, At: time.Now(),
 	})
 	return nil
+}
+
+// listSeats returns every seat that's currently locked or sold for an
+// event. The live seat map only learns about *changes* from the moment
+// its WebSocket connects, so without a snapshot like this, a seat locked
+// or sold before that moment renders as available on screen even though
+// the backend correctly refuses to lock it.
+func listSeats(ctx context.Context, rdb *redis.Client, eventID string) ([]SeatEvent, error) {
+	prefix := seatKey(eventID, "")
+	pattern := prefix + "*"
+
+	var seats []SeatEvent
+	iter := rdb.Scan(ctx, 0, pattern, 0).Iterator()
+	for iter.Next(ctx) {
+		key := iter.Val()
+		userID, err := rdb.Get(ctx, key).Result()
+		if err != nil {
+			continue // key expired between SCAN and GET -- fine, skip it
+		}
+		ttl, err := rdb.TTL(ctx, key).Result()
+		if err != nil {
+			continue
+		}
+		status := StatusLocked
+		if ttl < 0 { // no expiry set (Persist'd on confirm) = sold
+			status = StatusSold
+		}
+		seats = append(seats, SeatEvent{
+			EventID:  eventID,
+			SeatID:   strings.TrimPrefix(key, prefix),
+			Status:   status,
+			LockedBy: userID,
+		})
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	return seats, nil
 }
 
 func publish(ctx context.Context, rdb *redis.Client, eventID string, evt SeatEvent) {

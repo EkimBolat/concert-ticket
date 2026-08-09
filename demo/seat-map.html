@@ -229,6 +229,7 @@
         state.token = data.token;
         log(`admitted! got a token, moving to the seat map`);
         buildGrid();
+        await hydrateSeats();
         connectWS();
         showScreen("seats");
       } else {
@@ -254,6 +255,20 @@
         seatEls[seatId] = el;
       }
     });
+  }
+
+  // The WebSocket only streams changes from the moment it connects, so a
+  // seat locked/sold earlier (by anyone, in any previous session) would
+  // otherwise render as available even though the backend correctly
+  // refuses to lock it. Fetch a snapshot once, right before connecting,
+  // to paint the real state first.
+  async function hydrateSeats() {
+    try {
+      const data = await api(`/seats/${state.eventId}`);
+      (data.seats || []).forEach((s) => applyStatus(s.seatId, s.status, s.lockedBy));
+    } catch (err) {
+      log(`couldn't load current seat states: ${err}`);
+    }
   }
 
   function applyStatus(seatId, status, lockedBy) {

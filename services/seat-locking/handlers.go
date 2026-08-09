@@ -24,6 +24,23 @@ func parseSeatPath(path string) (eventID, seatID, action string, ok bool) {
 
 func seatsHandler(rdb *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// GET /seats/{eventId} -- snapshot of every locked/sold seat right
+		// now. Clients call this once when opening the seat map to hydrate
+		// colors, since the WebSocket only streams changes going forward.
+		if parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/"); len(parts) == 2 && parts[0] == "seats" {
+			if r.Method != http.MethodGet {
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			seats, err := listSeats(r.Context(), rdb, parts[1])
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			writeJSON(w, map[string]any{"seats": seats})
+			return
+		}
+
 		eventID, seatID, action, ok := parseSeatPath(r.URL.Path)
 		if !ok {
 			http.NotFound(w, r)
