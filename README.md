@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/EkimBolat/concert-ticket/actions/workflows/ci.yml/badge.svg)](https://github.com/EkimBolat/concert-ticket/actions/workflows/ci.yml)
 
+**[Try the live seat map demo](https://ekimbolat.github.io/concert-ticket/demo/seat-map.html)** -- open it in two tabs and race for the same seat. (First load may take ~50s: the free backend spins down when idle.)
+
 A backend-focused learning project. The goal isn't to build a ticket-selling website — it's to solve the interesting problem underneath one: when thousands of people try to buy tickets at the same moment, how do you make sure the same seat never gets sold to two people?
 
 This was inspired by Ticketmaster's 2022 Taylor Swift on-sale, which crashed for exactly this reason.
@@ -60,7 +62,9 @@ Once running, each service exposes a `/health` endpoint:
 
 ## 🖥️ Live demo page
 
-`demo/seat-map.html` is a single, dependency-free HTML file that connects to the Seat Locking Service directly (REST + WebSocket) and renders the seat map live. With `seat-locking` and Redis running, just open the file in a browser -- no build step, no server needed. Open it in two tabs with different user IDs and click the same seat in both to watch the lock guarantee resolve in real time.
+**Hosted version:** [ekimbolat.github.io/concert-ticket/demo/seat-map.html](https://ekimbolat.github.io/concert-ticket/demo/seat-map.html) -- talks to a live Seat Locking Service deployed on Render's free tier. Open it in two tabs and race for the same seat. The free instance spins down when idle, so the first request after a while can take ~50 seconds to wake up.
+
+`demo/seat-map.html` is also a single, dependency-free HTML file you can run fully locally: with `seat-locking` and Redis running on your machine, open the file in a browser and point `SEAT_LOCKING_URL` at `http://localhost:8082` -- no build step, no server needed.
 
 ![Live seat map demo](./demo/screenshot.png)
 
