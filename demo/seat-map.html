@@ -77,21 +77,45 @@
   }
 
   .reset-link { font-size: 12px; color: #6b7280; text-decoration: underline; cursor: pointer; }
+
+  .events { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
+  .event-card {
+    background: #1c1f26; border: 1px solid #2a2e37; border-radius: 10px; overflow: hidden;
+    cursor: pointer; text-align: left; transition: transform 0.1s, border-color 0.2s;
+  }
+  .event-card:hover { transform: translateY(-2px); border-color: #3b82f6; }
+  .event-poster { height: 84px; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+  .event-info { padding: 10px 12px 12px; }
+  .event-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .event-meta { font-size: 11px; color: #9aa0a6; margin-bottom: 6px; }
+  .event-price { font-size: 12px; color: #4ade80; font-weight: 600; }
 </style>
 </head>
 <body>
   <h1>🎫 Concert Ticket</h1>
   <p class="sub">
     A real purchase flow against the live backend (5 services, hosted free on Render --
-    the first request may take ~50s to wake everything up). Nothing here is fake except the payment.
+    the first request may take ~50s to wake everything up). The event listings are made up;
+    everything after you pick one -- the queue, the lock, the checkout -- runs for real.
   </p>
 
   <div class="steps">
-    <span class="step" data-step="join">1. Join</span>
-    <span class="step" data-step="waiting">2. Waiting room</span>
-    <span class="step" data-step="seats">3. Pick a seat</span>
-    <span class="step" data-step="checkout">4. Checkout</span>
-    <span class="step" data-step="confirmation">5. Confirmation</span>
+    <span class="step" data-step="browse">1. Browse</span>
+    <span class="step" data-step="join">2. Join</span>
+    <span class="step" data-step="waiting">3. Waiting room</span>
+    <span class="step" data-step="seats">4. Pick a seat</span>
+    <span class="step" data-step="checkout">5. Checkout</span>
+    <span class="step" data-step="confirmation">6. Confirmation</span>
+  </div>
+
+  <!-- Screen 0: Browse -->
+  <div id="screen-browse" class="screen card">
+    <h2>What do you want tickets for?</h2>
+    <p class="sub">
+      These listings are just demo data -- but the queue, seat locking, and checkout behind each one
+      are the real backend services, and each event gets its own independent queue and seat map.
+    </p>
+    <div id="events" class="events"></div>
   </div>
 
   <!-- Screen 1: Join -->
@@ -99,9 +123,10 @@
     <h2>Get in line</h2>
     <div class="field">
       <label>Event</label>
-      <input id="eventId" value="concert-1">
+      <div id="selectedEventLabel" style="font-size: 15px; font-weight: 600; margin-bottom: 4px;"></div>
+      <span class="reset-link" onclick="showScreen('browse')">change event</span>
     </div>
-    <div class="field">
+    <div class="field" style="margin-top: 14px;">
       <label>Your user ID</label>
       <input id="userId">
     </div>
@@ -110,14 +135,14 @@
 
   <!-- Screen 2: Waiting room -->
   <div id="screen-waiting" class="screen card">
-    <h2><span class="spinner"></span>You're in the queue</h2>
+    <h2><span class="spinner"></span>You're in the queue for <span id="waitingEventTitle"></span></h2>
     <p class="sub">The waiting room only lets a few people through at a time -- this is the whole point of the project. Hang tight.</p>
     <p>Position: <strong id="queuePosition">-</strong></p>
   </div>
 
   <!-- Screen 3: Seat map -->
   <div id="screen-seats" class="screen card">
-    <h2>Pick a seat</h2>
+    <h2>Pick a seat -- <span id="seatsEventTitle"></span></h2>
     <p class="sub">
       You're admitted. Open this page in another tab with a different user ID and race for the same seat
       to see the lock guarantee in action. <span id="wsStatus" class="status disconnected">● disconnected</span>
@@ -129,13 +154,13 @@
       <span><span class="dot" style="background:#4b5563"></span> sold</span>
     </div>
     <div id="grid" class="grid"></div>
-    <button id="checkoutBtn" onclick="showScreen('checkout')" disabled>Continue to checkout</button>
+    <button id="checkoutBtn" onclick="goToCheckout()" disabled>Continue to checkout</button>
   </div>
 
   <!-- Screen 4: Checkout -->
   <div id="screen-checkout" class="screen card">
     <h2>Checkout</h2>
-    <p class="sub">Seat <strong id="checkoutSeat"></strong> -- $45.00. This is a fake payment form, nothing is validated or charged.</p>
+    <p class="sub">Seat <strong id="checkoutSeat"></strong> -- <strong id="checkoutPrice"></strong>. This is a fake payment form, nothing is validated or charged.</p>
     <div class="field">
       <label>Card number</label>
       <input value="4242 4242 4242 4242" disabled>
@@ -154,7 +179,7 @@
       <input type="checkbox" id="simulateFailure">
       <label for="simulateFailure">Simulate a declined card (to see the saga release the seat)</label>
     </div>
-    <button onclick="submitOrder()">Pay $45.00</button>
+    <button onclick="submitOrder()">Pay <span id="payButtonPrice"></span></button>
   </div>
 
   <!-- Screen 5: Confirmation -->
@@ -172,9 +197,18 @@
   const WS_URL = GATEWAY_URL.replace(/^http/, "ws");
   const ROWS = ["A", "B", "C", "D", "E"];
   const COLS = 10;
-  const PRICE_CENTS = 4500;
 
-  const state = { eventId: "", userId: "", token: null, selectedSeat: null };
+  // Fake catalog -- just labels and prices for the demo. The backend
+  // doesn't know or care whether an eventId is "a concert" or "a movie";
+  // each one just gets its own independent queue, seat map, and locks.
+  const EVENTS = [
+    { id: "concert-1", title: "Neon Nights World Tour", meta: "Zorlu PSM · Aug 30, 20:00", icon: "🎤", priceCents: 4500, color: "#7c3aed" },
+    { id: "concert-midnight-static", title: "Midnight Static — Live", meta: "Volkswagen Arena · Sep 12, 21:00", icon: "🎸", priceCents: 5500, color: "#db2777" },
+    { id: "movie-last-reel", title: "The Last Reel", meta: "Now showing · 2h 08m", icon: "🎬", priceCents: 1200, color: "#0891b2" },
+    { id: "movie-quantum-drift", title: "Quantum Drift", meta: "Now showing · 1h 54m", icon: "🚀", priceCents: 1400, color: "#16a34a" },
+  ];
+
+  const state = { eventId: "", eventTitle: "", priceCents: 0, userId: "", token: null, selectedSeat: null };
   let pollTimer = null;
   let ws = null;
   const seatEls = {};
@@ -191,7 +225,7 @@
     document.getElementById(`screen-${name}`).classList.add("visible");
     document.querySelectorAll(".step").forEach((el) => {
       el.classList.remove("active", "done");
-      const order = ["join", "waiting", "seats", "checkout", "confirmation"];
+      const order = ["browse", "join", "waiting", "seats", "checkout", "confirmation"];
       if (el.dataset.step === name) el.classList.add("active");
       else if (order.indexOf(el.dataset.step) < order.indexOf(name)) el.classList.add("done");
     });
@@ -204,17 +238,47 @@
     return res.json();
   }
 
+  // ---- Screen 0: Browse ----
+  function renderEvents() {
+    const container = document.getElementById("events");
+    container.innerHTML = "";
+    EVENTS.forEach((ev) => {
+      const card = document.createElement("div");
+      card.className = "event-card";
+      card.innerHTML = `
+        <div class="event-poster" style="background:${ev.color}">${ev.icon}</div>
+        <div class="event-info">
+          <div class="event-title">${ev.title}</div>
+          <div class="event-meta">${ev.meta}</div>
+          <div class="event-price">$${(ev.priceCents / 100).toFixed(2)}</div>
+        </div>`;
+      card.addEventListener("click", () => selectEvent(ev));
+      container.appendChild(card);
+    });
+  }
+
+  function selectEvent(ev) {
+    state.eventId = ev.id;
+    state.eventTitle = ev.title;
+    state.priceCents = ev.priceCents;
+    document.getElementById("selectedEventLabel").textContent = `${ev.icon} ${ev.title}`;
+    log(`picked "${ev.title}" (${ev.id})`);
+    showScreen("join");
+  }
+
+  renderEvents();
+
   // ---- Screen 1: Join ----
   document.getElementById("userId").value = "user-" + Math.random().toString(36).slice(2, 7);
 
   async function joinQueue() {
-    state.eventId = document.getElementById("eventId").value.trim();
     state.userId = document.getElementById("userId").value.trim();
     if (!state.eventId || !state.userId) return;
 
     try {
       const data = await api(`/queue/${state.eventId}/join`, { method: "POST", body: JSON.stringify({ userId: state.userId }) });
       log(`joined queue for "${state.eventId}" as ${state.userId} -> position ${data.position}`);
+      document.getElementById("waitingEventTitle").textContent = state.eventTitle;
       showScreen("waiting");
       document.getElementById("queuePosition").textContent = data.position ?? "-";
       pollTimer = setInterval(pollStatus, 2000);
@@ -231,6 +295,7 @@
         clearInterval(pollTimer);
         state.token = data.token;
         log(`admitted! got a token, moving to the seat map`);
+        document.getElementById("seatsEventTitle").textContent = state.eventTitle;
         buildGrid();
         await hydrateSeats();
         connectWS();
@@ -345,6 +410,13 @@
   }
 
   // ---- Screen 4: Checkout ----
+  function goToCheckout() {
+    const price = `$${(state.priceCents / 100).toFixed(2)}`;
+    document.getElementById("checkoutPrice").textContent = price;
+    document.getElementById("payButtonPrice").textContent = price;
+    showScreen("checkout");
+  }
+
   async function submitOrder() {
     const simulateFailure = document.getElementById("simulateFailure").checked;
     try {
@@ -354,7 +426,7 @@
           eventId: state.eventId,
           seatId: state.selectedSeat,
           userId: state.userId,
-          amountCents: PRICE_CENTS,
+          amountCents: state.priceCents,
           simulateFailure,
         }),
       });
@@ -370,7 +442,7 @@
     const box = document.getElementById("resultBox");
     if (data.status === "CONFIRMED") {
       box.className = "result ok";
-      box.innerHTML = `<strong>✅ Confirmed!</strong><br>Order #${data.orderId} -- seat ${state.selectedSeat} is yours.`;
+      box.innerHTML = `<strong>✅ Confirmed!</strong><br>Order #${data.orderId} -- seat ${state.selectedSeat} for "${state.eventTitle}" is yours.`;
     } else {
       box.className = "result fail";
       const reason = data.reason === "payment_failed"
@@ -400,15 +472,18 @@
   function reset() {
     clearInterval(pollTimer);
     if (ws) ws.close();
+    state.eventId = "";
+    state.eventTitle = "";
+    state.priceCents = 0;
     state.token = null;
     state.selectedSeat = null;
     document.getElementById("userId").value = "user-" + Math.random().toString(36).slice(2, 7);
     document.getElementById("checkoutBtn").disabled = true;
     document.getElementById("simulateFailure").checked = false;
-    showScreen("join");
+    showScreen("browse"); // back to the catalog -- pick another event, not just rejoin the same one
   }
 
-  showScreen("join");
+  showScreen("browse");
 </script>
 </body>
 </html>
