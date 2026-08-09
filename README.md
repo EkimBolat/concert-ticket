@@ -8,7 +8,7 @@ A backend-focused learning project. The goal isn't to build a ticket-selling web
 
 **[Try the live demo](https://ekimbolat.github.io/concert-ticket/demo/seat-map.html)** — pick an event from the catalog, join its queue, get admitted, pick a seat, check out. All 5 backend services running for real, hosted free on Render. (First request may take ~50s: free instances spin down when idle.)
 
-![Live seat map demo](./demo/screenshot.png)
+![Live seat map demo](./demo/screenshot-v2.png)
 
 ## Highlights
 
