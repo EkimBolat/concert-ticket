@@ -36,6 +36,11 @@ func main() {
 
 	mux.Handle("/queue/", waitingRoom)
 
+	// Watching the live seat map is public (no token needed) -- only
+	// locking a seat requires admission. httputil.ReverseProxy forwards
+	// WebSocket upgrades transparently, so this "just works".
+	mux.Handle("/ws/", seatLocking)
+
 	// Locking a seat and placing an order are the two actions the
 	// Waiting Room is meant to gate -- both require a valid admission
 	// token that matches the event/user in the request. Everything else
