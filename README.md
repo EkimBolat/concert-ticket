@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/EkimBolat/concert-ticket/actions/workflows/ci.yml/badge.svg)](https://github.com/EkimBolat/concert-ticket/actions/workflows/ci.yml)
 
-**[Try the live seat map demo](https://ekimbolat.github.io/concert-ticket/demo/seat-map.html)** -- open it in two tabs and race for the same seat. (First load may take ~50s: the free backend spins down when idle.)
+**[Try the live demo](https://ekimbolat.github.io/concert-ticket/demo/seat-map.html)** -- join the queue, get admitted, pick a seat, check out. All 5 services running for real, hosted free on Render. (First request may take ~50s: free instances spin down when idle.)
 
 A backend-focused learning project. The goal isn't to build a ticket-selling website — it's to solve the interesting problem underneath one: when thousands of people try to buy tickets at the same moment, how do you make sure the same seat never gets sold to two people?
 
@@ -62,9 +62,9 @@ Once running, each service exposes a `/health` endpoint:
 
 ## 🖥️ Live demo page
 
-**Hosted version:** [ekimbolat.github.io/concert-ticket/demo/seat-map.html](https://ekimbolat.github.io/concert-ticket/demo/seat-map.html) -- talks to a live Seat Locking Service deployed on Render's free tier. Open it in two tabs and race for the same seat. The free instance spins down when idle, so the first request after a while can take ~50 seconds to wake up.
+**Hosted version:** [ekimbolat.github.io/concert-ticket/demo/seat-map.html](https://ekimbolat.github.io/concert-ticket/demo/seat-map.html) -- a real end-to-end purchase flow (join queue → get admitted → pick a seat → checkout) against all 5 services, deployed free on Render. Open it in two tabs with different user IDs and race for the same seat to watch the lock guarantee resolve live. There's also a checkbox on checkout to simulate a declined card, so you can watch the saga release the seat back to the pool. Free instances spin down when idle, so the first request after a while can take ~50 seconds to wake up.
 
-`demo/seat-map.html` is also a single, dependency-free HTML file you can run fully locally: with `seat-locking` and Redis running on your machine, open the file in a browser and point `SEAT_LOCKING_URL` at `http://localhost:8082` -- no build step, no server needed.
+`demo/seat-map.html` is a single, dependency-free HTML file -- no build step, no framework. To run it fully locally instead, change `GATEWAY_URL` at the top of the `<script>` to `http://localhost:8080` and run `api-gateway`, `waiting-room`, `seat-locking`, `order`, and `payment` on your machine.
 
 ![Live seat map demo](./demo/screenshot.png)
 

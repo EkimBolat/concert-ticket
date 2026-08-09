@@ -2,101 +2,280 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Concert Ticket — Live Seat Map</title>
+<title>Concert Ticket — Buy a Seat</title>
 <style>
   :root { color-scheme: dark; }
-  body { font-family: system-ui, sans-serif; background: #0f1115; color: #e6e6e6; padding: 24px; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; background: #0f1115; color: #e6e6e6; padding: 24px; max-width: 760px; margin: 0 auto; }
   h1 { font-size: 20px; margin-bottom: 4px; }
-  p.sub { color: #9aa0a6; margin-top: 0; max-width: 640px; }
-  .controls { margin-bottom: 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-  .controls label { font-size: 13px; color: #9aa0a6; display: flex; gap: 6px; align-items: center; }
-  input { background: #1c1f26; border: 1px solid #333; color: #e6e6e6; padding: 6px 10px; border-radius: 6px; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  p.sub { color: #9aa0a6; margin-top: 0; }
+  a { color: #60a5fa; }
+
+  .steps { display: flex; gap: 8px; margin: 16px 0 24px; flex-wrap: wrap; }
+  .step { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #1c1f26; color: #6b7280; border: 1px solid #2a2e37; }
+  .step.active { background: #1c3a5e; color: #93c5fd; border-color: #2f5f96; }
+  .step.done { background: #14321f; color: #4ade80; border-color: #1e4a2c; }
+
+  .screen { display: none; }
+  .screen.visible { display: block; }
+
+  .card { background: #171a21; border: 1px solid #2a2e37; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+
+  label { font-size: 13px; color: #9aa0a6; display: block; margin-bottom: 6px; }
+  input { width: 100%; background: #1c1f26; border: 1px solid #333; color: #e6e6e6; padding: 8px 10px; border-radius: 6px; font-size: 14px; }
+  .field { margin-bottom: 14px; }
+  .row { display: flex; gap: 12px; }
+  .row .field { flex: 1; }
+
+  button {
+    background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 6px;
+    font-size: 14px; cursor: pointer; font-weight: 600;
+  }
+  button:hover { background: #1d4ed8; }
+  button:disabled { background: #374151; cursor: not-allowed; }
+  button.secondary { background: transparent; border: 1px solid #333; color: #9aa0a6; }
+  button.secondary:hover { background: #1c1f26; }
+
   .status { font-size: 13px; }
   .status.connected { color: #4ade80; }
   .status.disconnected { color: #f87171; }
-  .grid { display: grid; grid-template-columns: repeat(10, 44px); gap: 8px; margin-top: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px; margin: 16px 0; }
   .seat {
-    width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center;
     font-size: 11px; cursor: pointer; border: 1px solid #333; background: #1c7a4a; color: white; user-select: none;
     transition: transform 0.1s, background 0.2s;
   }
   .seat:hover { transform: scale(1.06); }
   .seat.locked { background: #d97706; cursor: not-allowed; }
   .seat.sold { background: #4b5563; cursor: not-allowed; }
-  .legend { display: flex; gap: 16px; margin-top: 16px; font-size: 13px; color: #9aa0a6; }
+  .seat.mine { background: #2563eb; outline: 2px solid #93c5fd; }
+  .legend { display: flex; gap: 16px; margin-bottom: 8px; font-size: 13px; color: #9aa0a6; }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  .spinner {
+    width: 22px; height: 22px; border: 3px solid #2a2e37; border-top-color: #60a5fa; border-radius: 50%;
+    animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; margin-right: 10px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .result { padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+  .result.ok { background: #14321f; border: 1px solid #1e4a2c; color: #86efac; }
+  .result.fail { background: #3a1a1a; border: 1px solid #5c2626; color: #fca5a5; }
+
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .checkbox-row input { width: auto; }
+  .checkbox-row label { margin: 0; }
+
   .log {
     margin-top: 20px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; color: #9aa0a6;
-    background: #1c1f26; border-radius: 8px; padding: 10px; height: 140px; overflow-y: auto;
+    background: #1c1f26; border-radius: 8px; padding: 10px; height: 120px; overflow-y: auto;
   }
+
+  .reset-link { font-size: 12px; color: #6b7280; text-decoration: underline; cursor: pointer; }
 </style>
 </head>
 <body>
-  <h1>🎫 Concert Ticket — Live Seat Map</h1>
+  <h1>🎫 Concert Ticket</h1>
   <p class="sub">
-    Talks directly to the live Seat Locking Service (REST + WebSocket, hosted on Render's free tier --
-    the first request may take ~50s to wake it up). Open this page in two browser tabs with different
-    user IDs and race for the same seat to see the lock guarantee in action.
+    A real purchase flow against the live backend (5 services, hosted free on Render --
+    the first request may take ~50s to wake everything up). Nothing here is fake except the payment.
   </p>
 
-  <div class="controls">
-    <label>Event <input id="eventId" value="concert-1"></label>
-    <label>Your user ID <input id="userId"></label>
-    <span id="wsStatus" class="status disconnected">● disconnected</span>
+  <div class="steps">
+    <span class="step" data-step="join">1. Join</span>
+    <span class="step" data-step="waiting">2. Waiting room</span>
+    <span class="step" data-step="seats">3. Pick a seat</span>
+    <span class="step" data-step="checkout">4. Checkout</span>
+    <span class="step" data-step="confirmation">5. Confirmation</span>
   </div>
 
-  <div id="grid" class="grid"></div>
+  <!-- Screen 1: Join -->
+  <div id="screen-join" class="screen card">
+    <h2>Get in line</h2>
+    <div class="field">
+      <label>Event</label>
+      <input id="eventId" value="concert-1">
+    </div>
+    <div class="field">
+      <label>Your user ID</label>
+      <input id="userId">
+    </div>
+    <button onclick="joinQueue()">Join Queue</button>
+  </div>
 
-  <div class="legend">
-    <span><span class="dot" style="background:#1c7a4a"></span> available</span>
-    <span><span class="dot" style="background:#d97706"></span> locked</span>
-    <span><span class="dot" style="background:#4b5563"></span> sold</span>
+  <!-- Screen 2: Waiting room -->
+  <div id="screen-waiting" class="screen card">
+    <h2><span class="spinner"></span>You're in the queue</h2>
+    <p class="sub">The waiting room only lets a few people through at a time -- this is the whole point of the project. Hang tight.</p>
+    <p>Position: <strong id="queuePosition">-</strong></p>
+  </div>
+
+  <!-- Screen 3: Seat map -->
+  <div id="screen-seats" class="screen card">
+    <h2>Pick a seat</h2>
+    <p class="sub">
+      You're admitted. Open this page in another tab with a different user ID and race for the same seat
+      to see the lock guarantee in action. <span id="wsStatus" class="status disconnected">● disconnected</span>
+    </p>
+    <div class="legend">
+      <span><span class="dot" style="background:#1c7a4a"></span> available</span>
+      <span><span class="dot" style="background:#d97706"></span> locked</span>
+      <span><span class="dot" style="background:#2563eb"></span> yours</span>
+      <span><span class="dot" style="background:#4b5563"></span> sold</span>
+    </div>
+    <div id="grid" class="grid"></div>
+    <button id="checkoutBtn" onclick="showScreen('checkout')" disabled>Continue to checkout</button>
+  </div>
+
+  <!-- Screen 4: Checkout -->
+  <div id="screen-checkout" class="screen card">
+    <h2>Checkout</h2>
+    <p class="sub">Seat <strong id="checkoutSeat"></strong> -- $45.00. This is a fake payment form, nothing is validated or charged.</p>
+    <div class="field">
+      <label>Card number</label>
+      <input value="4242 4242 4242 4242" disabled>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Expiry</label>
+        <input value="12/30" disabled>
+      </div>
+      <div class="field">
+        <label>CVC</label>
+        <input value="123" disabled>
+      </div>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="simulateFailure">
+      <label for="simulateFailure">Simulate a declined card (to see the saga release the seat)</label>
+    </div>
+    <button onclick="submitOrder()">Pay $45.00</button>
+  </div>
+
+  <!-- Screen 5: Confirmation -->
+  <div id="screen-confirmation" class="screen card">
+    <h2>Order result</h2>
+    <div id="resultBox" class="result"></div>
+    <button class="secondary" onclick="reset()">Start over</button>
   </div>
 
   <div id="log" class="log"></div>
 
 <script>
+  const GATEWAY_URL = "https://api-gateway-u36u.onrender.com";
+  const WS_URL = GATEWAY_URL.replace(/^http/, "ws");
   const ROWS = ["A", "B", "C", "D", "E"];
   const COLS = 10;
-  const SEAT_LOCKING_URL = "https://seat-locking.onrender.com";
-  const WS_URL = SEAT_LOCKING_URL.replace(/^http/, "ws"); // https -> wss, http -> ws
+  const PRICE_CENTS = 4500;
 
-  const grid = document.getElementById("grid");
-  const logEl = document.getElementById("log");
-  const wsStatusEl = document.getElementById("wsStatus");
-  const eventInput = document.getElementById("eventId");
-  const userInput = document.getElementById("userId");
-
-  userInput.value = "user-" + Math.random().toString(36).slice(2, 7);
-
+  const state = { eventId: "", userId: "", token: null, selectedSeat: null };
+  let pollTimer = null;
+  let ws = null;
   const seatEls = {};
 
-  ROWS.forEach((row) => {
-    for (let c = 1; c <= COLS; c++) {
-      const seatId = `${row}${c}`;
-      const el = document.createElement("div");
-      el.className = "seat";
-      el.textContent = seatId;
-      el.addEventListener("click", () => lockSeat(seatId));
-      grid.appendChild(el);
-      seatEls[seatId] = el;
-    }
-  });
-
+  const logEl = document.getElementById("log");
   function log(msg) {
     const line = document.createElement("div");
     line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
     logEl.prepend(line);
   }
 
+  function showScreen(name) {
+    document.querySelectorAll(".screen").forEach((el) => el.classList.remove("visible"));
+    document.getElementById(`screen-${name}`).classList.add("visible");
+    document.querySelectorAll(".step").forEach((el) => {
+      el.classList.remove("active", "done");
+      const order = ["join", "waiting", "seats", "checkout", "confirmation"];
+      if (el.dataset.step === name) el.classList.add("active");
+      else if (order.indexOf(el.dataset.step) < order.indexOf(name)) el.classList.add("done");
+    });
+  }
+
+  async function api(path, options = {}) {
+    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+    if (state.token) headers["Authorization"] = `Bearer ${state.token}`;
+    const res = await fetch(`${GATEWAY_URL}${path}`, { ...options, headers });
+    return res.json();
+  }
+
+  // ---- Screen 1: Join ----
+  document.getElementById("userId").value = "user-" + Math.random().toString(36).slice(2, 7);
+
+  async function joinQueue() {
+    state.eventId = document.getElementById("eventId").value.trim();
+    state.userId = document.getElementById("userId").value.trim();
+    if (!state.eventId || !state.userId) return;
+
+    try {
+      const data = await api(`/queue/${state.eventId}/join`, { method: "POST", body: JSON.stringify({ userId: state.userId }) });
+      log(`joined queue for "${state.eventId}" as ${state.userId} -> position ${data.position}`);
+      showScreen("waiting");
+      document.getElementById("queuePosition").textContent = data.position ?? "-";
+      pollTimer = setInterval(pollStatus, 2000);
+    } catch (err) {
+      log(`failed to join queue: ${err} (backend may still be waking up, try again)`);
+    }
+  }
+
+  // ---- Screen 2: Waiting room ----
+  async function pollStatus() {
+    try {
+      const data = await api(`/queue/${state.eventId}/status?userId=${encodeURIComponent(state.userId)}`);
+      if (data.status === "admitted") {
+        clearInterval(pollTimer);
+        state.token = data.token;
+        log(`admitted! got a token, moving to the seat map`);
+        buildGrid();
+        connectWS();
+        showScreen("seats");
+      } else {
+        document.getElementById("queuePosition").textContent = data.position ?? "-";
+      }
+    } catch (err) {
+      log(`status check failed: ${err}`);
+    }
+  }
+
+  // ---- Screen 3: Seat map ----
+  function buildGrid() {
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    ROWS.forEach((row) => {
+      for (let c = 1; c <= COLS; c++) {
+        const seatId = `${row}${c}`;
+        const el = document.createElement("div");
+        el.className = "seat";
+        el.textContent = seatId;
+        el.addEventListener("click", () => lockSeat(seatId));
+        grid.appendChild(el);
+        seatEls[seatId] = el;
+      }
+    });
+  }
+
   function applyStatus(seatId, status) {
     const el = seatEls[seatId];
     if (!el) return;
-    el.classList.remove("locked", "sold");
+    if (seatId === state.selectedSeat && (status === "locked" || status === "sold")) return; // keep it blue
+    el.classList.remove("locked", "sold", "mine");
     if (status === "locked") el.classList.add("locked");
     if (status === "sold") el.classList.add("sold");
-    // "released" falls through to the default green (available) state.
+  }
+
+  function connectWS() {
+    if (ws) ws.close();
+    ws = new WebSocket(`${WS_URL}/ws/${state.eventId}`);
+    const wsStatusEl = document.getElementById("wsStatus");
+    ws.onopen = () => { wsStatusEl.textContent = "● connected"; wsStatusEl.className = "status connected"; };
+    ws.onclose = () => { wsStatusEl.textContent = "● disconnected"; wsStatusEl.className = "status disconnected"; };
+    ws.onmessage = (evt) => {
+      const data = JSON.parse(evt.data);
+      applyStatus(data.seatId, data.status);
+      log(`${data.seatId} -> ${data.status}${data.lockedBy ? " (by " + data.lockedBy + ")" : ""}`);
+    };
   }
 
   async function lockSeat(seatId) {
@@ -105,46 +284,70 @@
       log(`${seatId} is not available`);
       return;
     }
-    const eventId = eventInput.value.trim();
-    const userId = userInput.value.trim();
     try {
-      const res = await fetch(`${SEAT_LOCKING_URL}/seats/${eventId}/${seatId}/lock`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-      });
-      const data = await res.json();
-      log(`${userId} tried to lock ${seatId} -> locked: ${data.locked}`);
+      const data = await api(`/seats/${state.eventId}/${seatId}/lock`, { method: "POST", body: JSON.stringify({ userId: state.userId }) });
+      log(`tried to lock ${seatId} -> locked: ${data.locked}`);
+      if (data.locked) {
+        if (state.selectedSeat) seatEls[state.selectedSeat]?.classList.remove("mine");
+        state.selectedSeat = seatId;
+        el.classList.add("mine");
+        document.getElementById("checkoutBtn").disabled = false;
+        document.getElementById("checkoutSeat").textContent = seatId;
+      }
     } catch (err) {
-      log(`request failed: ${err} (the backend may still be waking up, try again in a few seconds)`);
+      log(`lock request failed: ${err}`);
     }
   }
 
-  let ws;
-  function connect() {
-    const eventId = eventInput.value.trim();
-    if (ws) ws.close();
-    ws = new WebSocket(`${WS_URL}/ws/${eventId}`);
-
-    ws.onopen = () => {
-      wsStatusEl.textContent = "● connected";
-      wsStatusEl.className = "status connected";
-      log(`connected to the live seat map for "${eventId}"`);
-    };
-    ws.onclose = () => {
-      wsStatusEl.textContent = "● disconnected";
-      wsStatusEl.className = "status disconnected";
-    };
-    ws.onerror = () => log("websocket error (the backend may still be waking up, try again in a few seconds)");
-    ws.onmessage = (evt) => {
-      const data = JSON.parse(evt.data);
-      applyStatus(data.seatId, data.status);
-      log(`${data.seatId} -> ${data.status}${data.lockedBy ? " (by " + data.lockedBy + ")" : ""}`);
-    };
+  // ---- Screen 4: Checkout ----
+  async function submitOrder() {
+    const simulateFailure = document.getElementById("simulateFailure").checked;
+    try {
+      const data = await api("/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          eventId: state.eventId,
+          seatId: state.selectedSeat,
+          userId: state.userId,
+          amountCents: PRICE_CENTS,
+          simulateFailure,
+        }),
+      });
+      log(`order #${data.orderId} -> ${data.status}${data.reason ? " (" + data.reason + ")" : ""}`);
+      renderResult(data);
+      showScreen("confirmation");
+    } catch (err) {
+      log(`order request failed: ${err}`);
+    }
   }
 
-  eventInput.addEventListener("change", connect);
-  connect();
+  function renderResult(data) {
+    const box = document.getElementById("resultBox");
+    if (data.status === "CONFIRMED") {
+      box.className = "result ok";
+      box.innerHTML = `<strong>✅ Confirmed!</strong><br>Order #${data.orderId} -- seat ${state.selectedSeat} is yours.`;
+    } else {
+      box.className = "result fail";
+      const reason = data.reason === "payment_failed"
+        ? "your card was declined (simulated). The seat was released back to the pool -- try again."
+        : data.reason;
+      box.innerHTML = `<strong>❌ Order failed</strong><br>Order #${data.orderId} -- ${reason}`;
+    }
+  }
+
+  // ---- Reset ----
+  function reset() {
+    clearInterval(pollTimer);
+    if (ws) ws.close();
+    state.token = null;
+    state.selectedSeat = null;
+    document.getElementById("userId").value = "user-" + Math.random().toString(36).slice(2, 7);
+    document.getElementById("checkoutBtn").disabled = true;
+    document.getElementById("simulateFailure").checked = false;
+    showScreen("join");
+  }
+
+  showScreen("join");
 </script>
 </body>
 </html>
