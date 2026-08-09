@@ -58,6 +58,10 @@ Once running, each service exposes a `/health` endpoint:
 | notification | 8085 |
 | RabbitMQ management UI | 15672 (guest/guest) |
 
+## 🖥️ Live demo page
+
+`demo/seat-map.html` is a single, dependency-free HTML file that connects to the Seat Locking Service directly (REST + WebSocket) and renders the seat map live. With `seat-locking` and Redis running, just open the file in a browser -- no build step, no server needed. Open it in two tabs with different user IDs and click the same seat in both to watch the lock guarantee resolve in real time.
+
 ## 🧪 Testing
 
 `seat-locking` and `order` have integration tests behind a build tag (they need a real Redis / Postgres to run against):

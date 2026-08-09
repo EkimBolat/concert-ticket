@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Concert Ticket — Live Seat Map</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: system-ui, sans-serif; background: #0f1115; color: #e6e6e6; padding: 24px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: #9aa0a6; margin-top: 0; max-width: 640px; }
+  .controls { margin-bottom: 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .controls label { font-size: 13px; color: #9aa0a6; display: flex; gap: 6px; align-items: center; }
+  input { background: #1c1f26; border: 1px solid #333; color: #e6e6e6; padding: 6px 10px; border-radius: 6px; }
+  .status { font-size: 13px; }
+  .status.connected { color: #4ade80; }
+  .status.disconnected { color: #f87171; }
+  .grid { display: grid; grid-template-columns: repeat(10, 44px); gap: 8px; margin-top: 16px; }
+  .seat {
+    width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; cursor: pointer; border: 1px solid #333; background: #1c7a4a; color: white; user-select: none;
+    transition: transform 0.1s, background 0.2s;
+  }
+  .seat:hover { transform: scale(1.06); }
+  .seat.locked { background: #d97706; cursor: not-allowed; }
+  .seat.sold { background: #4b5563; cursor: not-allowed; }
+  .legend { display: flex; gap: 16px; margin-top: 16px; font-size: 13px; color: #9aa0a6; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .log {
+    margin-top: 20px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; color: #9aa0a6;
+    background: #1c1f26; border-radius: 8px; padding: 10px; height: 140px; overflow-y: auto;
+  }
+</style>
+</head>
+<body>
+  <h1>🎫 Concert Ticket — Live Seat Map</h1>
+  <p class="sub">
+    Talks directly to the Seat Locking Service on <code>localhost:8082</code> (REST + WebSocket) --
+    open this page in two browser tabs with different user IDs and race for the same seat to see
+    the lock guarantee in action.
+  </p>
+
+  <div class="controls">
+    <label>Event <input id="eventId" value="concert-1"></label>
+    <label>Your user ID <input id="userId"></label>
+    <span id="wsStatus" class="status disconnected">● disconnected</span>
+  </div>
+
+  <div id="grid" class="grid"></div>
+
+  <div class="legend">
+    <span><span class="dot" style="background:#1c7a4a"></span> available</span>
+    <span><span class="dot" style="background:#d97706"></span> locked</span>
+    <span><span class="dot" style="background:#4b5563"></span> sold</span>
+  </div>
+
+  <div id="log" class="log"></div>
+
+<script>
+  const ROWS = ["A", "B", "C", "D", "E"];
+  const COLS = 10;
+  const SEAT_LOCKING_URL = "http://localhost:8082";
+
+  const grid = document.getElementById("grid");
+  const logEl = document.getElementById("log");
+  const wsStatusEl = document.getElementById("wsStatus");
+  const eventInput = document.getElementById("eventId");
+  const userInput = document.getElementById("userId");
+
+  userInput.value = "user-" + Math.random().toString(36).slice(2, 7);
+
+  const seatEls = {};
+
+  ROWS.forEach((row) => {
+    for (let c = 1; c <= COLS; c++) {
+      const seatId = `${row}${c}`;
+      const el = document.createElement("div");
+      el.className = "seat";
+      el.textContent = seatId;
+      el.addEventListener("click", () => lockSeat(seatId));
+      grid.appendChild(el);
+      seatEls[seatId] = el;
+    }
+  });
+
+  function log(msg) {
+    const line = document.createElement("div");
+    line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logEl.prepend(line);
+  }
+
+  function applyStatus(seatId, status) {
+    const el = seatEls[seatId];
+    if (!el) return;
+    el.classList.remove("locked", "sold");
+    if (status === "locked") el.classList.add("locked");
+    if (status === "sold") el.classList.add("sold");
+    // "released" falls through to the default green (available) state.
+  }
+
+  async function lockSeat(seatId) {
+    const el = seatEls[seatId];
+    if (el.classList.contains("locked") || el.classList.contains("sold")) {
+      log(`${seatId} is not available`);
+      return;
+    }
+    const eventId = eventInput.value.trim();
+    const userId = userInput.value.trim();
+    try {
+      const res = await fetch(`${SEAT_LOCKING_URL}/seats/${eventId}/${seatId}/lock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      log(`${userId} tried to lock ${seatId} -> locked: ${data.locked}`);
+    } catch (err) {
+      log(`request failed: ${err} (is seat-locking running on :8082?)`);
+    }
+  }
+
+  let ws;
+  function connect() {
+    const eventId = eventInput.value.trim();
+    if (ws) ws.close();
+    ws = new WebSocket(`ws://localhost:8082/ws/${eventId}`);
+
+    ws.onopen = () => {
+      wsStatusEl.textContent = "● connected";
+      wsStatusEl.className = "status connected";
+      log(`connected to the live seat map for "${eventId}"`);
+    };
+    ws.onclose = () => {
+      wsStatusEl.textContent = "● disconnected";
+      wsStatusEl.className = "status disconnected";
+    };
+    ws.onerror = () => log("websocket error (is seat-locking running on :8082?)");
+    ws.onmessage = (evt) => {
+      const data = JSON.parse(evt.data);
+      applyStatus(data.seatId, data.status);
+      log(`${data.seatId} -> ${data.status}${data.lockedBy ? " (by " + data.lockedBy + ")" : ""}`);
+    };
+  }
+
+  eventInput.addEventListener("change", connect);
+  connect();
+</script>
+</body>
+</html>

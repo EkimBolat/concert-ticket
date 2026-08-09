@@ -39,7 +39,7 @@ func main() {
 	mux.HandleFunc("/seats/", seatsHandler(rdb))
 
 	log.Printf("seat-locking service listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := http.ListenAndServe(":"+port, corsMiddleware(mux)); err != nil {
 		log.Fatal(err)
 	}
 }
