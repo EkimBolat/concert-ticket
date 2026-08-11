@@ -181,6 +181,7 @@
       <input type="checkbox" id="simulateFailure">
       <label for="simulateFailure">Simulate a declined card (to see the saga release the seat)</label>
     </div>
+    <p id="simulateWarning" class="sub" style="display: none; color: #f87171; margin: -8px 0 16px; font-weight: 600;">⚠ Checked -- this payment will be declined on purpose.</p>
     <button onclick="submitOrder()">Pay <span id="payButtonPrice"></span></button>
   </div>
 
@@ -274,6 +275,13 @@
   }
 
   renderEvents();
+
+  // Makes it unmistakable when the "simulate a declined card" checkbox is
+  // on -- easy to check once while testing, forget about, and then be
+  // confused later why a real-looking order failed.
+  document.getElementById("simulateFailure").addEventListener("change", (e) => {
+    document.getElementById("simulateWarning").style.display = e.target.checked ? "block" : "none";
+  });
 
   // ---- Screen 1: Join ----
   document.getElementById("userId").value = "user-" + Math.random().toString(36).slice(2, 7);
@@ -442,6 +450,11 @@
 
   async function submitOrder() {
     const simulateFailure = document.getElementById("simulateFailure").checked;
+    // Payment only ever fails for one of two reasons: this checkbox was
+    // checked, or the amount was <= 0. Logging exactly what's being sent
+    // makes it obvious which one it was, instead of just seeing "declined"
+    // and wondering why.
+    log(`submitting order -- seat ${state.selectedSeat}, $${(state.priceCents / 100).toFixed(2)}, simulateFailure: ${simulateFailure}`);
     try {
       const data = await api("/orders", {
         method: "POST",
