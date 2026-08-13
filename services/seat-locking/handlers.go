@@ -86,11 +86,12 @@ func seatsHandler(rdb *redis.Client) http.HandlerFunc {
 			writeJSON(w, map[string]any{"released": released})
 
 		case "confirm":
-			if err := confirmSeat(ctx, rdb, eventID, seatID, body.UserID); err != nil {
+			confirmed, err := confirmSeat(ctx, rdb, eventID, seatID, body.UserID)
+			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			writeJSON(w, map[string]any{"confirmed": true})
+			writeJSON(w, map[string]any{"confirmed": confirmed})
 
 		default:
 			http.NotFound(w, r)

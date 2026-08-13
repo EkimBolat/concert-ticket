@@ -109,3 +109,52 @@ func TestReleaseSeat_OnlyOwnerCanRelease(t *testing.T) {
 		t.Fatalf("expected release by the owner to succeed")
 	}
 }
+
+func TestConfirmSeat_OnlyOwnerCanConfirm(t *testing.T) {
+	rdb := newRedisClient()
+	defer rdb.Close()
+	ctx := context.Background()
+	eventID := uniqueEventID(t)
+	defer rdb.Del(ctx, seatKey(eventID, "S4"))
+
+	if _, err := lockSeat(ctx, rdb, eventID, "S4", "owner"); err != nil {
+		t.Fatalf("lockSeat error: %v", err)
+	}
+
+	confirmed, err := confirmSeat(ctx, rdb, eventID, "S4", "not-the-owner")
+	if err != nil {
+		t.Fatalf("confirmSeat error: %v", err)
+	}
+	if confirmed {
+		t.Fatalf("expected confirm by a non-owner to be refused")
+	}
+
+	confirmed, err = confirmSeat(ctx, rdb, eventID, "S4", "owner")
+	if err != nil {
+		t.Fatalf("confirmSeat error: %v", err)
+	}
+	if !confirmed {
+		t.Fatalf("expected confirm by the owner to succeed")
+	}
+}
+
+// TestConfirmSeat_UnlockedSeatIsRefused guards against the bug where
+// confirming a seat that was never locked (e.g. a client that skips the
+// lock step and goes straight to checkout) would silently report success
+// without actually marking anything sold -- leaving the seat free for
+// someone else to lock and sell out from under the "confirmed" order.
+func TestConfirmSeat_UnlockedSeatIsRefused(t *testing.T) {
+	rdb := newRedisClient()
+	defer rdb.Close()
+	ctx := context.Background()
+	eventID := uniqueEventID(t)
+	defer rdb.Del(ctx, seatKey(eventID, "S5"))
+
+	confirmed, err := confirmSeat(ctx, rdb, eventID, "S5", "user-a")
+	if err != nil {
+		t.Fatalf("confirmSeat error: %v", err)
+	}
+	if confirmed {
+		t.Fatalf("expected confirm on an unlocked seat to be refused")
+	}
+}

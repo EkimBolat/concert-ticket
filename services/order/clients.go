@@ -33,13 +33,18 @@ func postJSON(url string, body any, out any) (int, error) {
 
 func confirmSeat(baseURL, eventID, seatID, userID string) error {
 	url := fmt.Sprintf("%s/seats/%s/%s/confirm", baseURL, eventID, seatID)
-	var out map[string]any
+	var out struct {
+		Confirmed bool `json:"confirmed"`
+	}
 	status, err := postJSON(url, map[string]string{"userId": userID}, &out)
 	if err != nil {
 		return err
 	}
 	if status != http.StatusOK {
 		return fmt.Errorf("seat-locking confirm failed: status %d", status)
+	}
+	if !out.Confirmed {
+		return fmt.Errorf("seat-locking confirm refused: seat is not locked by this user")
 	}
 	return nil
 }

@@ -77,16 +77,31 @@ func releaseSeat(ctx context.Context, rdb *redis.Client, eventID, seatID, userID
 
 // confirmSeat is called by the Order Service once payment succeeds. It
 // removes the TTL so the seat is permanently SOLD instead of expiring.
-func confirmSeat(ctx context.Context, rdb *redis.Client, eventID, seatID, userID string) error {
+// Like releaseSeat, it only acts if the lock is still held by the same
+// user who acquired it -- without this check, a confirm for a seat that
+// was never locked (or whose lock has since moved to someone else) would
+// silently report success without actually marking anything sold,
+// letting the same seat be locked and sold again.
+func confirmSeat(ctx context.Context, rdb *redis.Client, eventID, seatID, userID string) (bool, error) {
 	key := seatKey(eventID, seatID)
+	current, err := rdb.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return false, nil // nothing locked -- refuse
+	}
+	if err != nil {
+		return false, err
+	}
+	if current != userID {
+		return false, nil // held by someone else -- refuse
+	}
 	if err := rdb.Persist(ctx, key).Err(); err != nil {
-		return err
+		return false, err
 	}
 	publish(ctx, rdb, eventID, SeatEvent{
 		EventID: eventID, SeatID: seatID,
 		Status: StatusSold, LockedBy: userID, At: time.Now(),
 	})
-	return nil
+	return true, nil
 }
 
 // listSeats returns every seat that's currently locked or sold for an
