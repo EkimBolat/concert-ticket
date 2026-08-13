@@ -1,10 +1,10 @@
-# Concert Ticket
+# Gatekeeper
 
 [![CI](https://github.com/EkimBolat/concert-ticket/actions/workflows/ci.yml/badge.svg)](https://github.com/EkimBolat/concert-ticket/actions/workflows/ci.yml)
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-A backend-focused learning project. The goal isn't to build a ticket-selling website — it's to solve the interesting problem underneath one: when thousands of people try to buy tickets at the same moment, how do you make sure the same seat never gets sold to two people? This was inspired by Ticketmaster's 2022 Taylor Swift on-sale, which crashed for exactly that reason.
+A backend-focused learning project. The goal isn't to build a ticket-selling website — it's to build the traffic-control infrastructure that sits in front of one: when thousands of people try to buy tickets at the same moment, how do you make sure the same seat never gets sold to two people? This was inspired by Ticketmaster's 2022 Taylor Swift on-sale, which crashed for exactly that reason. Concert ticketing is the demo domain here, but the services underneath are domain-agnostic — the same waiting-room + seat-lock infrastructure works for course registration, flight seat selection, or any limited-inventory drop.
 
 **[Try the live demo](https://ekimbolat.github.io/concert-ticket/demo/seat-map.html)** — pick an event from the catalog, join its queue, get admitted, pick a seat, check out. All 5 backend services running for real, hosted free on Render. (First request may take ~50s: free instances spin down when idle.)
 
