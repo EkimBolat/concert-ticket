@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-var httpClient = &http.Client{Timeout: 5 * time.Second}
+// 60s, not a more typical 5s -- the seat-locking and payment services are
+// hosted on Render's free tier, which spins instances down when idle and
+// can take up to ~50s to wake one back up on the next request.
+var httpClient = &http.Client{Timeout: 60 * time.Second}
 
 func postJSON(url string, body any, out any) (int, error) {
 	b, err := json.Marshal(body)

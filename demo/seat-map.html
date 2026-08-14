@@ -467,23 +467,31 @@
         }),
       });
       log(`order #${data.orderId} -> ${data.status}${data.reason ? " (" + data.reason + ")" : ""}`);
-      renderResult(data);
+      renderResult(data, simulateFailure);
       showScreen("confirmation");
     } catch (err) {
       log(`order request failed: ${err}`);
     }
   }
 
-  function renderResult(data) {
+  function renderResult(data, simulateFailure) {
     const box = document.getElementById("resultBox");
     if (data.status === "CONFIRMED") {
       box.className = "result ok";
       box.innerHTML = `<strong>✅ Confirmed!</strong><br>Order #${data.orderId} -- seat ${state.selectedSeat} for "${state.eventTitle}" is yours.`;
     } else {
       box.className = "result fail";
-      const reason = data.reason === "payment_failed"
-        ? "your card was declined (simulated). The seat was released back to the pool -- try again."
-        : data.reason;
+      // "payment_failed" means one of two different things: the checkbox
+      // was checked (a real simulated decline), or the payment service
+      // call itself errored out -- most likely a Render free-tier
+      // cold-start timeout, nothing to do with the card. Only claim a
+      // decline when the checkbox actually caused it.
+      let reason = data.reason;
+      if (data.reason === "payment_failed") {
+        reason = simulateFailure
+          ? "your card was declined (simulated). The seat was released back to the pool -- try again."
+          : "the payment service didn't respond in time (likely waking up from Render's free-tier sleep). The seat was released back to the pool -- try again in a moment.";
+      }
       box.innerHTML = `<strong>❌ Order failed</strong><br>Order #${data.orderId} -- ${reason}`;
     }
   }
