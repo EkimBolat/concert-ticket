@@ -50,8 +50,10 @@ func main() {
 		handleWS(manager, w, r, eventID)
 	})
 
+	internalSecret := getenv("INTERNAL_SECRET", "dev-internal-secret-change-me")
+
 	// REST: /seats/{eventId}/{seatId}/lock|release|confirm
-	mux.HandleFunc("/seats/", seatsHandler(rdb))
+	mux.HandleFunc("/seats/", seatsHandler(rdb, internalSecret))
 
 	log.Printf("seat-locking service listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, corsMiddleware(mux)); err != nil {

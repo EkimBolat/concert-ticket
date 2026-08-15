@@ -22,7 +22,7 @@ func parseSeatPath(path string) (eventID, seatID, action string, ok bool) {
 	return parts[1], parts[2], parts[3], true
 }
 
-func seatsHandler(rdb *redis.Client) http.HandlerFunc {
+func seatsHandler(rdb *redis.Client, internalSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// /seats/{eventId} (no seatId/action) -- GET for a snapshot of every
 		// locked/sold seat, DELETE to wipe all of them (the demo's "full
@@ -78,6 +78,10 @@ func seatsHandler(rdb *redis.Client) http.HandlerFunc {
 			writeJSON(w, map[string]any{"locked": acquired})
 
 		case "release":
+			if !hasInternalSecret(r, internalSecret) {
+				http.Error(w, "forbidden: release is server-to-server only", http.StatusForbidden)
+				return
+			}
 			released, err := releaseSeat(ctx, rdb, eventID, seatID, body.UserID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -86,6 +90,10 @@ func seatsHandler(rdb *redis.Client) http.HandlerFunc {
 			writeJSON(w, map[string]any{"released": released})
 
 		case "confirm":
+			if !hasInternalSecret(r, internalSecret) {
+				http.Error(w, "forbidden: confirm is server-to-server only", http.StatusForbidden)
+				return
+			}
 			confirmed, err := confirmSeat(ctx, rdb, eventID, seatID, body.UserID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)

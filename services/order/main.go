@@ -20,6 +20,7 @@ type dependencies struct {
 	db             *sql.DB
 	seatLockingURL string
 	paymentURL     string
+	internalSecret string
 	events         *eventPublisher
 }
 
@@ -35,6 +36,7 @@ func main() {
 		db:             db,
 		seatLockingURL: getenv("SEAT_LOCKING_URL", "http://localhost:8082"),
 		paymentURL:     getenv("PAYMENT_URL", "http://localhost:8084"),
+		internalSecret: getenv("INTERNAL_SECRET", "dev-internal-secret-change-me"),
 		events:         events,
 	}
 

@@ -29,6 +29,10 @@ jobs:
         working-directory: services/${{ matrix.service }}
         run: go build ./...
 
+      - name: Test ${{ matrix.service }} (non-integration)
+        working-directory: services/${{ matrix.service }}
+        run: go test ./...
+
   test:
     runs-on: ubuntu-latest
 

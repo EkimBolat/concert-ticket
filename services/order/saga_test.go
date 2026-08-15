@@ -27,6 +27,8 @@ func always(body map[string]any) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+const testSecret = "test-internal-secret"
+
 func testDeps(t *testing.T, paymentURL, seatLockingURL string) *dependencies {
 	t.Helper()
 	db := newDB()
@@ -35,14 +37,26 @@ func testDeps(t *testing.T, paymentURL, seatLockingURL string) *dependencies {
 		db:             db,
 		seatLockingURL: seatLockingURL,
 		paymentURL:     paymentURL,
+		internalSecret: testSecret,
 		events:         &eventPublisher{}, // nil channel -> publish() is a no-op
 	}
 }
 
 func TestPlaceOrder_HappyPath(t *testing.T) {
-	payment := jsonServer(always(map[string]any{"status": "succeeded"}))
+	var paymentSecret, seatLockingSecret string
+
+	payment := jsonServer(func(w http.ResponseWriter, r *http.Request) {
+		paymentSecret = r.Header.Get("X-Internal-Secret")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "succeeded"})
+	})
 	defer payment.Close()
-	seatLocking := jsonServer(always(map[string]any{"confirmed": true}))
+
+	seatLocking := jsonServer(func(w http.ResponseWriter, r *http.Request) {
+		seatLockingSecret = r.Header.Get("X-Internal-Secret")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"confirmed": true})
+	})
 	defer seatLocking.Close()
 
 	deps := testDeps(t, payment.URL, seatLocking.URL)
@@ -55,6 +69,16 @@ func TestPlaceOrder_HappyPath(t *testing.T) {
 	}
 	if result.Status != "CONFIRMED" {
 		t.Fatalf("expected CONFIRMED, got %s", result.Status)
+	}
+
+	// The order service is the only trusted caller of these endpoints --
+	// confirm this secret actually goes out on the wire, not just that
+	// postJSON accepts a parameter for it.
+	if paymentSecret != testSecret {
+		t.Fatalf("expected payment charge to carry the internal secret, got %q", paymentSecret)
+	}
+	if seatLockingSecret != testSecret {
+		t.Fatalf("expected seat-locking confirm to carry the internal secret, got %q", seatLockingSecret)
 	}
 }
 

@@ -58,6 +58,7 @@ services:
     environment:
       - PORT=8082
       - REDIS_ADDR=redis:6379
+      - INTERNAL_SECRET=change-me-in-production
     depends_on:
       - redis
 
@@ -71,6 +72,7 @@ services:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - SEAT_LOCKING_URL=http://seat-locking:8082
       - PAYMENT_URL=http://payment:8084
+      - INTERNAL_SECRET=change-me-in-production
     depends_on:
       - postgres
       - rabbitmq
@@ -84,6 +86,7 @@ services:
     environment:
       - PORT=8084
       - DATABASE_URL=postgres://gatekeeper:gatekeeper@postgres:5432/paymentdb?sslmode=disable
+      - INTERNAL_SECRET=change-me-in-production
     depends_on:
       - postgres
 

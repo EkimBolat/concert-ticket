@@ -27,15 +27,18 @@ Concert ticketing is used as the demo domain, but the underlying services are do
 - Seat selection uses `SETNX seat:{eventId}:{seatId}` with a TTL (`LOCK_TTL_MINUTES`, default 2 minutes) — this is the core concurrency guarantee: only one request can ever win the lock.
 - Broadcasts seat state changes (`locked` / `released` / `sold`) to all connected clients over WebSocket via Redis Pub/Sub, so every browser sees the live seat map update instantly.
 - Locks expire automatically if checkout isn't completed in time, releasing the seat back to the pool.
+- `lock` is reachable by any admitted client (that's the point). `release` and `confirm` are server-to-server only — they require the shared `INTERNAL_SECRET` header — because they're meant to be called by the Order Service alone; without that check, any client could confirm a seat SOLD directly, skipping payment entirely.
 
 ### 4. Order Service (Saga Orchestrator)
 - Owns the purchase saga: reserve → charge → confirm, with compensating actions on failure.
 - Orchestrates calls to Payment and Seat Locking; if payment fails, it triggers the compensating action (release the seat lock) instead of leaving it stuck.
 - Publishes domain events (`order.completed`, `order.failed`) to the message broker.
+- The only service that holds `INTERNAL_SECRET` as a caller — it's the sole trusted client of Seat Locking's release/confirm and Payment's charge/refund.
 
 ### 5. Payment Service
 - Simulates an external payment gateway (mock charge/refund endpoints).
 - Idempotent by design — the same order ID can never be charged twice, even under retry.
+- `charge` and `refund` require the shared `INTERNAL_SECRET` header, same reasoning as Seat Locking's release/confirm: only the Order Service should ever be able to move money.
 
 ### 6. Notification Service
 - Subscribes to order events and sends confirmation/failure messages (mocked as logs or an email stub).
@@ -83,6 +86,7 @@ sequenceDiagram
 - Real-time fan-out via Redis Pub/Sub + WebSocket instead of client-side polling.
 - Each service owns its own data store — failures are isolated instead of cascading through a single shared database.
 - The waiting room is actually enforced, not decorative: the API Gateway verifies the admission JWT's signature, expiry, and that it was issued for the exact event/user in the request, before letting a lock or order request through. Skipping the queue isn't possible even if you know the internal API shape.
+- Server-to-server endpoints are actually restricted, not just documented as such: Seat Locking's `release`/`confirm` and Payment's `charge`/`refund` are meant to be called by the Order Service alone, and each one rejects any request that doesn't carry the shared `INTERNAL_SECRET`. Without that check, the gateway's own `/seats/` passthrough would let any client confirm a seat SOLD directly — skipping payment altogether.
 
 ## Tech Stack
 

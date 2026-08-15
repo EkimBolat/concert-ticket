@@ -26,11 +26,11 @@ func placeOrder(deps *dependencies, req placeOrderRequest) (placeOrderResult, er
 	}
 
 	// Step 1: charge payment.
-	paymentStatus, err := chargePayment(deps.paymentURL, orderID, req.UserID, req.AmountCents, req.SimulateFailure)
+	paymentStatus, err := chargePayment(deps.paymentURL, orderID, req.UserID, req.AmountCents, req.SimulateFailure, deps.internalSecret)
 	if err != nil || paymentStatus != "succeeded" {
 		log.Printf("order %d: payment failed (err=%v status=%q), releasing seat", orderID, err, paymentStatus)
 		// Compensating action: we never took the money, so give the seat back.
-		if relErr := releaseSeat(deps.seatLockingURL, req.EventID, req.SeatID, req.UserID); relErr != nil {
+		if relErr := releaseSeat(deps.seatLockingURL, req.EventID, req.SeatID, req.UserID, deps.internalSecret); relErr != nil {
 			log.Printf("order %d: failed to release seat during compensation: %v", orderID, relErr)
 		}
 		_ = updateOrderStatus(deps.db, orderID, "FAILED")
@@ -39,11 +39,11 @@ func placeOrder(deps *dependencies, req placeOrderRequest) (placeOrderResult, er
 	}
 
 	// Step 2: confirm the seat as sold.
-	if err := confirmSeat(deps.seatLockingURL, req.EventID, req.SeatID, req.UserID); err != nil {
+	if err := confirmSeat(deps.seatLockingURL, req.EventID, req.SeatID, req.UserID, deps.internalSecret); err != nil {
 		log.Printf("order %d: seat confirm failed (%v), refunding payment", orderID, err)
 		// Compensating action: payment succeeded but we couldn't keep the
 		// seat, so give the money back.
-		if refErr := refundPayment(deps.paymentURL, orderID); refErr != nil {
+		if refErr := refundPayment(deps.paymentURL, orderID, deps.internalSecret); refErr != nil {
 			log.Printf("order %d: failed to refund during compensation: %v", orderID, refErr)
 		}
 		_ = updateOrderStatus(deps.db, orderID, "FAILED")
